@@ -1,0 +1,501 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>데이터베이스 탐색기</title>
+    <link href="./dist/output.css" rel="stylesheet">
+
+    <style>
+        body {
+            @apply bg-gray-100;
+        }
+        .page {
+            display: none;
+        }
+        .page.active {
+            display: block;
+        }
+    </style>
+</head>
+<body class="min-h-screen p-6">
+<!-- 페이지 1: 데이터베이스 연결 -->
+<div id="connection-page" class="page active max-w-2xl mx-auto">
+    <div class="bg-white rounded-xl shadow-lg p-8">
+        <div class="flex items-center justify-between mb-8">
+            <h2 class="text-3xl font-bold text-gray-800">데이터베이스 연결</h2>
+            <div class="bg-blue-100 text-blue-800 px-4 py-1 rounded-full text-sm font-semibold">
+                연결 설정
+            </div>
+        </div>
+
+        <div class="space-y-6">
+            <!-- 저장된 연결 선택 -->
+            <div class="col-span-2 space-y-2">
+                <div class="flex justify-between items-center">
+                    <label class="block text-sm font-medium text-gray-700">저장된 연결</label>
+                    <button onclick="deleteConnection()" class="text-red-600 hover:text-red-800 text-sm">
+                        삭제
+                    </button>
+                </div>
+                <div class="flex gap-2">
+                    <select id="savedConnections" class="flex-1 p-3 border border-gray-300 rounded-lg shadow-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500">
+                        <option value="">새 연결</option>
+                    </select>
+                    <button onclick="loadConnection()" class="bg-gray-500 hover:bg-gray-600 text-white font-semibold px-4 rounded-lg">
+                        불러오기
+                    </button>
+                </div>
+            </div>
+
+            <!-- 연결 이름 입력 -->
+            <div class="col-span-2">
+                <label class="block text-sm font-medium text-gray-700 mb-2">연결 이름</label>
+                <input type="text" id="connectionName" placeholder="연결 설정 이름" class="w-full p-3 border border-gray-300 rounded-lg shadow-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500">
+            </div>
+
+            <div class="grid grid-cols-2 gap-6">
+                <div class="col-span-2">
+                    <label class="block text-sm font-medium text-gray-700 mb-2">데이터베이스 타입</label>
+                    <select id="dbType" class="w-full p-3 border border-gray-300 rounded-lg shadow-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500" onchange="updatePortBasedOnDBType()">
+                        <option value="mysql">MySQL</option>
+                        <option value="postgresql">PostgreSQL</option>
+                        <option value="oracle">Oracle</option>
+                    </select>
+                </div>
+
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">호스트</label>
+                    <input type="text" id="host" placeholder="localhost" class="w-full p-3 border border-gray-300 rounded-lg shadow-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500">
+                </div>
+
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">포트</label>
+                    <input type="text" id="port" placeholder="3306" class="w-full p-3 border border-gray-300 rounded-lg shadow-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500">
+                </div>
+
+                <div class="oracle-specific" style="display: none;">
+                    <label class="block text-sm font-medium text-gray-700 mb-2">SID/Service Name</label>
+                    <input type="text" id="sid" placeholder="ORCL" class="w-full p-3 border border-gray-300 rounded-lg shadow-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500">
+                </div>
+
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">사용자명</label>
+                    <input type="text" id="username" placeholder="root" class="w-full p-3 border border-gray-300 rounded-lg shadow-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500">
+                </div>
+
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">비밀번호</label>
+                    <input type="password" id="password" class="w-full p-3 border border-gray-300 rounded-lg shadow-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500">
+                </div>
+
+                <div class="col-span-2">
+                    <label class="block text-sm font-medium text-gray-700 mb-2">데이터베이스</label>
+                    <input type="text" id="database" class="w-full p-3 border border-gray-300 rounded-lg shadow-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500">
+                </div>
+            </div>
+
+            <div class="space-y-3 pt-4">
+                <button onclick="saveConnection()" class="w-full bg-gray-500 hover:bg-gray-600 text-white font-semibold py-3 px-6 rounded-lg transition duration-200">
+                    현재 설정 저장
+                </button>
+                <button onclick="testConnection()" class="w-full bg-green-500 hover:bg-green-600 text-white font-semibold py-3 px-6 rounded-lg transition duration-200">
+                    연결 테스트
+                </button>
+                <button onclick="connectDB()" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 px-6 rounded-lg transition duration-200">
+                    연결
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 페이지 2: 테이블 목록 -->
+<div id="tables-page" class="page max-w-6xl mx-auto">
+    <div class="bg-white rounded-xl shadow-lg p-8">
+        <div class="flex items-center justify-between mb-8">
+            <h2 class="text-3xl font-bold text-gray-800">테이블 목록</h2>
+            <button onclick="showPage('connection-page')" class="bg-gray-100 hover:bg-gray-200 text-gray-800 font-semibold py-2 px-4 rounded-lg transition duration-200">
+                ← 돌아가기
+            </button>
+        </div>
+
+        <div id="tables-list" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            <!-- 테이블 목록이 여기에 동적으로 추가됨 -->
+        </div>
+    </div>
+</div>
+
+<!-- 페이지 3: 테이블 상세 정보 -->
+<div id="table-detail-page" class="page">
+    <div class="bg-white rounded-xl shadow-lg p-8">
+        <div class="flex items-center justify-between mb-8">
+            <h2 class="text-3xl font-bold text-gray-800">테이블 상세 정보</h2>
+            <button onclick="showPage('tables-page')" class="bg-gray-100 hover:bg-gray-200 text-gray-800 font-semibold py-2 px-4 rounded-lg transition duration-200">
+                ← 돌아가기
+            </button>
+        </div>
+
+        <!-- 탭 메뉴 -->
+        <div class="border-b border-gray-200 mb-6">
+            <div class="flex -mb-px">
+                <button onclick="switchTab('columns')" id="tab-columns" class="px-4 py-2 font-semibold text-sm border-b-2 border-blue-500">
+                    컬럼 정보
+                </button>
+                <button onclick="switchTab('duplicates')" id="tab-duplicates" class="px-4 py-2 font-semibold text-sm text-gray-600 hover:text-gray-800">
+                    중복값 분석
+                </button>
+            </div>
+        </div>
+
+
+        <!-- 컬럼 정보 탭 -->
+        <div id="columns-content" class="tab-content">
+            <div class="overflow-x-auto">
+                <table class="min-w-full divide-y divide-gray-200">
+                    <thead>
+                    <tr>
+                        <th class="px-6 py-3 bg-gray-50 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">컬럼명</th>
+                        <th class="px-6 py-3 bg-gray-50 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">데이터 타입</th>
+                        <th class="px-6 py-3 bg-gray-50 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Nullable</th>
+                        <th class="px-6 py-3 bg-gray-50 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Key</th>
+                        <th class="px-6 py-3 bg-gray-50 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Default</th>
+                        <th class="px-6 py-3 bg-gray-50 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Extra</th>
+                    </tr>
+                    </thead>
+                    <tbody id="column-list" class="bg-white divide-y divide-gray-200">
+                    <!-- 컬럼 정보가 여기에 동적으로 추가됨 -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- 중복값 분석 탭 -->
+        <div id="duplicates-content" class="tab-content hidden">
+            <div class="grid grid-cols-1 gap-4">
+                <!-- 중복값 정보가 동적으로 추가됨 -->
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    const { ipcRenderer } = require('electron')
+
+    // 데이터베이스 타입별 기본 포트
+    const DEFAULT_PORTS = {
+        mysql: '3306',
+        postgresql: '5432',
+        oracle: '1521'
+    }
+
+    function showPage(pageId) {
+        // 모든 페이지 숨기기
+        document.querySelectorAll('.page').forEach(page => {
+            page.classList.remove('active')
+        })
+        // 선택한 페이지 표시
+        document.getElementById(pageId).classList.add('active')
+    }
+
+    function updatePortBasedOnDBType() {
+        const dbType = document.getElementById('dbType').value
+        const portInput = document.getElementById('port')
+        const oracleSpecificFields = document.querySelectorAll('.oracle-specific')
+
+        // 포트가 비어있을 때만 기본값으로 설정
+        if (!portInput.value) {
+            portInput.value = DEFAULT_PORTS[dbType]
+        }
+
+        // Oracle 특정 필드 표시/숨김
+        oracleSpecificFields.forEach(field => {
+            field.style.display = dbType === 'oracle' ? 'block' : 'none'
+        })
+
+        // placeholder 업데이트
+        const usernameInput = document.getElementById('username')
+        if (dbType === 'oracle') {
+            usernameInput.placeholder = 'system'
+        } else if (dbType === 'postgresql') {
+            usernameInput.placeholder = 'postgres'
+        } else {
+            usernameInput.placeholder = 'root'
+        }
+    }
+
+    async function testConnection() {
+        const config = getConnectionConfig()
+        try {
+            const result = await ipcRenderer.invoke('test-connection', config)
+            alert('연결 테스트 성공!')
+        } catch (error) {
+            alert('연결 테스트 실패: ' + error.message)
+        }
+    }
+
+    function getConnectionConfig() {
+        const config = {
+            type: document.getElementById('dbType').value,
+            host: document.getElementById('host').value,
+            port: document.getElementById('port').value,
+            username: document.getElementById('username').value,
+            password: document.getElementById('password').value,
+            database: document.getElementById('database').value
+        }
+
+        if (config.type === 'oracle') {
+            config.sid = document.getElementById('sid').value
+        }
+
+        return config
+    }
+
+    async function connectDB() {
+        const config = getConnectionConfig()
+
+        try {
+            const tables = await ipcRenderer.invoke('connect-database', config)
+            renderTables(tables)
+            showPage('tables-page')
+        } catch (error) {
+            alert('데이터베이스 연결 실패: ' + error.message)
+        }
+    }
+    async function showTableDetails(tableName) {
+        try {
+            currentTableName = tableName;
+            const columns = await ipcRenderer.invoke('get-table-details', tableName)
+
+            // 탭 상태 초기화
+            document.querySelectorAll('.tab-content').forEach(content => {
+                content.classList.add('hidden')
+            })
+            document.getElementById('columns-content').classList.remove('hidden')
+
+            // 탭 버튼 스타일 초기화
+            document.querySelectorAll('[id^="tab-"]').forEach(tab => {
+                tab.classList.remove('border-blue-500', 'text-blue-600')
+                tab.classList.add('text-gray-600')
+            })
+            document.getElementById('tab-columns').classList.add('border-blue-500', 'text-blue-600')
+
+            // 중복값 탭 내용 초기화
+            document.getElementById('duplicates-content').innerHTML = ''
+
+            // 컬럼 정보 렌더링
+            renderColumns(columns)
+            showPage('table-detail-page')
+        } catch (error) {
+            alert('테이블 정보 조회 실패: ' + error.message)
+        }
+    }
+
+    function renderTables(tables) {
+        const tablesList = document.getElementById('tables-list')
+        tablesList.innerHTML = ''
+
+        tables.forEach(table => {
+            const tableCard = document.createElement('div')
+            tableCard.className = 'bg-gray-50 hover:bg-gray-100 p-6 rounded-xl shadow-sm cursor-pointer transition duration-200 transform hover:-translate-y-1'
+            tableCard.innerHTML = `
+            <div class="flex items-center justify-between mb-2">
+                <h3 class="text-lg font-bold text-gray-800">${table.name}</h3>
+                <div class="flex gap-2">
+                    <span class="bg-blue-100 text-blue-800 text-xs font-semibold px-2.5 py-0.5 rounded-full">
+                        ${table.columns} 컬럼
+                    </span>
+                    ${table.duplicate_datas > 0 ?
+                `<span class="bg-red-100 text-red-800 text-xs font-semibold px-2.5 py-0.5 rounded-full">
+                            중복 ${table.duplicate_datas}개
+                        </span>` : ''
+            }
+                </div>
+            </div>
+            <p class="text-sm text-gray-500">테이블 정보 보기</p>
+        `
+            tableCard.onclick = () => showTableDetails(table.name)
+            tablesList.appendChild(tableCard)
+        })
+    }
+
+    function renderColumns(columns) {
+        const columnList = document.getElementById('column-list')
+        columnList.innerHTML = ''
+
+        columns.forEach(column => {
+            const row = document.createElement('tr')
+            row.className = 'hover:bg-gray-50'
+            row.innerHTML = `
+                    <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">${column.name}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${column.type}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${column.nullable}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${column.key || ''}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${column.default || ''}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${column.extra || ''}</td>
+                `
+            columnList.appendChild(row)
+        })
+    }
+
+
+    // 페이지 로드 시 저장된 연결 목록 불러오기
+    async function loadSavedConnections() {
+        try {
+            const connections = await ipcRenderer.invoke('get-connections')
+            const select = document.getElementById('savedConnections')
+            select.innerHTML = '<option value="">새 연결</option>'
+            connections.forEach(conn => {
+                const option = document.createElement('option')
+                option.value = conn.name
+                option.textContent = conn.name
+                select.appendChild(option)
+            })
+        } catch (error) {
+            console.error('저장된 연결 불러오기 실패:', error)
+        }
+    }
+
+    // 연결 정보 저장
+    async function saveConnection() {
+        const name = document.getElementById('connectionName').value.trim()
+        if (!name) {
+            alert('연결 이름을 입력해주세요')
+            return
+        }
+
+        const config = getConnectionConfig()
+        config.name = name
+
+        try {
+            await ipcRenderer.invoke('save-connection', config)
+            alert('연결 정보가 저장되었습니다')
+            loadSavedConnections()
+        } catch (error) {
+            alert('저장 실패: ' + error.message)
+        }
+    }
+
+    // 저장된 연결 불러오기
+    // 저장된 연결 불러오기
+    async function loadConnection() {
+        const select = document.getElementById('savedConnections')
+        const selectedName = select.value
+
+        if (!selectedName) {
+            clearForm()
+            return
+        }
+
+        try {
+            const connections = await ipcRenderer.invoke('get-connections')
+            const connection = connections.find(conn => conn.name === selectedName)
+            if (connection) {
+                // 먼저 데이터베이스 타입을 설정하고 updatePortBasedOnDBType 호출
+                document.getElementById('dbType').value = connection.type
+                updatePortBasedOnDBType()
+
+                // 그 다음 저장된 값들을 설정
+                document.getElementById('connectionName').value = connection.name
+                document.getElementById('host').value = connection.host
+                document.getElementById('port').value = connection.port // 포트는 updatePortBasedOnDBType 이후에 설정
+                document.getElementById('username').value = connection.username
+                document.getElementById('password').value = connection.password
+                document.getElementById('database').value = connection.database
+                if (connection.sid) {
+                    document.getElementById('sid').value = connection.sid
+                }
+            }
+        } catch (error) {
+            alert('불러오기 실패: ' + error.message)
+        }
+    }
+
+    // 저장된 연결 삭제
+    async function deleteConnection() {
+        const select = document.getElementById('savedConnections')
+        const selectedName = select.value
+
+        if (!selectedName) {
+            return
+        }
+
+        if (confirm(`'${selectedName}' 연결을 삭제하시겠습니까?`)) {
+            try {
+                await ipcRenderer.invoke('delete-connection', selectedName)
+                alert('연결이 삭제되었습니다')
+                loadSavedConnections()
+                clearForm()
+            } catch (error) {
+                alert('삭제 실패: ' + error.message)
+            }
+        }
+    }
+
+    // 폼 초기화
+    function clearForm() {
+        document.getElementById('connectionName').value = ''
+        document.getElementById('host').value = ''
+        document.getElementById('port').value = ''
+        document.getElementById('username').value = ''
+        document.getElementById('password').value = ''
+        document.getElementById('database').value = ''
+        document.getElementById('sid').value = ''
+        document.getElementById('dbType').value = 'mysql'
+        updatePortBasedOnDBType()
+    }
+
+    // 페이지 로드 시 저장된 연결 목록 불러오기
+    window.addEventListener('load', loadSavedConnections)
+    async function switchTab(tabName) {
+        // 탭 스타일 변경
+        document.querySelectorAll('.tab-content').forEach(content => {
+            content.classList.add('hidden')
+        })
+        document.getElementById(`${tabName}-content`).classList.remove('hidden')
+
+        // 탭 버튼 스타일 변경
+        document.querySelectorAll('[id^="tab-"]').forEach(tab => {
+            tab.classList.remove('border-blue-500', 'text-blue-600')
+            tab.classList.add('text-gray-600')
+        })
+        document.getElementById(`tab-${tabName}`).classList.add('border-blue-500', 'text-blue-600')
+
+        // 중복값 탭인 경우 데이터 로드
+        if (tabName === 'duplicates') {
+            await loadDuplicateData()
+        }
+    }
+
+    async function loadDuplicateData() {
+        try {
+            const duplicates = await ipcRenderer.invoke('get-data-duplicates', currentTableName)
+            renderDuplicates(duplicates)
+        } catch (error) {
+            alert('중복값 분석 실패: ' + error.message)
+        }
+    }
+    function renderDuplicates(duplicates) {
+        const container = document.getElementById('duplicates-content')
+        container.innerHTML = duplicates.length > 0 ?
+            duplicates.map(dup => `
+            <div class="bg-white p-4 rounded-lg shadow mb-4">
+                <div class="flex justify-between items-center mb-2">
+                    <h3 class="font-semibold">중복 데이터 #${dup.id}</h3>
+                    <span class="bg-red-100 text-red-800 text-xs font-semibold px-2.5 py-0.5 rounded-full">
+                        ${dup.count}개 중복
+                    </span>
+                </div>
+                <div class="text-sm text-gray-600">
+                    <div class="whitespace-pre-wrap">
+                        <span class="font-medium">데이터 값:</span><br/>
+                        ${dup.value.split(',').map(val =>
+                `<span class="ml-4">${val.trim()}</span>`
+            ).join('<br/>')}
+                    </div>
+                </div>
+            </div>
+        `).join('') :
+            '<div class="text-center text-gray-500">중복된 데이터가 없습니다.</div>'
+    }
+</script>
+</body>
+</html>
